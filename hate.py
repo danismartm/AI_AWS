@@ -1,28 +1,34 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
 
-# Usar un modelo público para detectar texto tóxico
-toxicity_model_checkpoint = "unitary/toxic-bert"
+# Cargar el modelo de análisis de sentimientos
+sentiment_model_checkpoint = "distilbert-base-uncased-finetuned-sst-2-english"
+tokenizer = AutoTokenizer.from_pretrained(sentiment_model_checkpoint)
+model = AutoModelForSequenceClassification.from_pretrained(sentiment_model_checkpoint)
 
-# Cargar el tokenizador y el modelo
-toxicity_tokenizer = AutoTokenizer.from_pretrained(toxicity_model_checkpoint)
-toxicity_model = AutoModelForSequenceClassification.from_pretrained(toxicity_model_checkpoint)
+# Texto de ejemplo (poner en inglés)
+text = "You make me feel bad"
 
-# Frase a analizar
-text = "Eres una persona terrible y te odio."
+# Tokenización del texto
+inputs = tokenizer(text, return_tensors="pt")
 
-# Tokenizar la entrada
-toxicity_input_ids = toxicity_tokenizer(text, return_tensors="pt").input_ids
+# Obtener las predicciones del modelo
+with torch.no_grad():
+    outputs = model(**inputs)
 
-# Obtener los logits (probabilidades sin normalizar)
-logits = toxicity_model(toxicity_input_ids).logits
-print(f'logits[not hate, hate]: {logits.tolist()[0]}')
+# Obtener los logits y aplicar softmax para obtener probabilidades
+logits = outputs.logits
+probabilities = torch.nn.functional.softmax(logits, dim=-1)
 
-# Calcular las probabilidades
-probabilities = logits.softmax(dim=-1).tolist()[0]
-print(f'probabilities [not hate, hate]: {probabilities}')
+# Mostrar la probabilidad para cada clase
+print(f'Probabilidades [negativo, positivo]: {probabilities.tolist()}')
 
-# Obtener los datos de "not hate" (la recompensa)
-not_hate_index = 0  # Asumiendo que "not hate" es el primer valor en los logits
-nothate_reward = logits[:, not_hate_index].tolist()
-print(f'reward (value of "not hate" logit): {nothate_reward}')
+# Determinar si el texto es positivo o negativo
+if torch.argmax(probabilities) == 1:
+    print("Sentimiento positivo")
+else:
+    print("Sentimiento negativo")
+
+
+
 
